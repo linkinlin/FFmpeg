@@ -249,7 +249,7 @@ typedef struct VideoState {
     int audio_buf_index; /* in bytes */
     int audio_write_buf_size;
     int audio_volume;
-    int muted;
+    int muted; //是否静音
     struct AudioParams audio_src;
     struct AudioParams audio_filter_src;
     struct AudioParams audio_tgt;
@@ -2454,36 +2454,36 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
     audio_callback_time = av_gettime_relative();
 
     while (len > 0) {
-        if (is->audio_buf_index >= is->audio_buf_size) {
-           audio_size = audio_decode_frame(is);
+        if (is->audio_buf_index >= is->audio_buf_size) { //如果缓存索引大于缓存大小
+           audio_size = audio_decode_frame(is); //解码一帧
            if (audio_size < 0) {
                 /* if error, just output silence */
                is->audio_buf = NULL;
-               is->audio_buf_size = SDL_AUDIO_MIN_BUFFER_SIZE / is->audio_tgt.frame_size * is->audio_tgt.frame_size;
+               is->audio_buf_size = SDL_AUDIO_MIN_BUFFER_SIZE / is->audio_tgt.frame_size * is->audio_tgt.frame_size; //重新设置缓冲池大小
            } else {
-               if (is->show_mode != SHOW_MODE_VIDEO)
+               if (is->show_mode != SHOW_MODE_VIDEO) //如果非视频
                    update_sample_display(is, (int16_t *)is->audio_buf, audio_size);
-               is->audio_buf_size = audio_size;
+               is->audio_buf_size = audio_size; //重新设置缓冲池大小
            }
-           is->audio_buf_index = 0;
+           is->audio_buf_index = 0; //索引置空
         }
-        len1 = is->audio_buf_size - is->audio_buf_index;
-        if (len1 > len)
+        len1 = is->audio_buf_size - is->audio_buf_index; //计算现有缓存大小
+        if (len1 > len) //如果现有大小超过了len
             len1 = len;
-        if (!is->muted && is->audio_buf && is->audio_volume == SDL_MIX_MAXVOLUME)
-            memcpy(stream, (uint8_t *)is->audio_buf + is->audio_buf_index, len1);
+        if (!is->muted && is->audio_buf && is->audio_volume == SDL_MIX_MAXVOLUME) //没有静音，且缓存有数据，且音量等于最小音量
+            memcpy(stream, (uint8_t *)is->audio_buf + is->audio_buf_index, len1); //发送len大小的数据到SDL
         else {
             memset(stream, 0, len1);
             if (!is->muted && is->audio_buf)
                 SDL_MixAudioFormat(stream, (uint8_t *)is->audio_buf + is->audio_buf_index, AUDIO_S16SYS, len1, is->audio_volume);
         }
-        len -= len1;
+        len -= len1; //设置剩余长度
         stream += len1;
-        is->audio_buf_index += len1;
+        is->audio_buf_index += len1; //设置增加索引
     }
-    is->audio_write_buf_size = is->audio_buf_size - is->audio_buf_index;
+    is->audio_write_buf_size = is->audio_buf_size - is->audio_buf_index; //计算音频写入大小
     /* Let's assume the audio driver that is used by SDL has two periods. */
-    if (!isnan(is->audio_clock)) {
+    if (!isnan(is->audio_clock)) { //音频时钟设置
         set_clock_at(&is->audclk, is->audio_clock - (double)(2 * is->audio_hw_buf_size + is->audio_write_buf_size) / is->audio_tgt.bytes_per_sec, is->audio_clock_serial, audio_callback_time / 1000000.0);
         sync_clock_to_slave(&is->extclk, &is->audclk);
     }
