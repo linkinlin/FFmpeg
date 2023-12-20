@@ -130,11 +130,11 @@ typedef struct PacketQueue {
 #define FRAME_QUEUE_SIZE FFMAX(SAMPLE_QUEUE_SIZE, FFMAX(VIDEO_PICTURE_QUEUE_SIZE, SUBPICTURE_QUEUE_SIZE))
 
 typedef struct AudioParams {
-    int freq;
-    AVChannelLayout ch_layout;
-    enum AVSampleFormat fmt;
-    int frame_size;
-    int bytes_per_sec;
+    int freq; //音频采样率, 一秒钟内对音频信号进行采样的次数，以Hz为单位
+    AVChannelLayout ch_layout; //音频的声道布局
+    enum AVSampleFormat fmt; //音频采样格式
+    int frame_size; //音频帧大小，帧大小 = 采样频率(一帧，该值根据不同的音频格式固定，比如aac 1024) × 采样格式的字节数 × 声道数
+    int bytes_per_sec; //音频的每秒字节数 = 采样频率(每秒) × 采样格式的字节数 × 声道数
 } AudioParams;
 
 typedef struct Clock {
@@ -2061,11 +2061,11 @@ static int audio_thread(void *arg)
                 tb = (AVRational){1, frame->sample_rate};
 
                 reconfigure =
-                    cmp_audio_fmts(is->audio_filter_src.fmt, is->audio_filter_src.ch_layout.nb_channels,
+                    cmp_audio_fmts(is->audio_filter_src.fmt, is->audio_filter_src.ch_layout.nb_channels,   //过滤器的音频格式和通道数是否与音频帧是否一致，不一致需要重新配置（不设置过滤器时一致）
                                    frame->format, frame->ch_layout.nb_channels)    ||
-                    av_channel_layout_compare(&is->audio_filter_src.ch_layout, &frame->ch_layout) ||
-                    is->audio_filter_src.freq           != frame->sample_rate ||
-                    is->auddec.pkt_serial               != last_serial;
+                    av_channel_layout_compare(&is->audio_filter_src.ch_layout, &frame->ch_layout) || //判断过滤器的音频格式是否与帧中的一致，不一致需要重新配置（不设置过滤器时一致）
+                    is->audio_filter_src.freq           != frame->sample_rate ||  //判断过滤器采样率是否与帧中的一致
+                    is->auddec.pkt_serial               != last_serial;        //判断解码器的包序号是否与最后一个包一致
 
                 if (reconfigure) {
                     char buf1[1024], buf2[1024];
@@ -2723,7 +2723,7 @@ static int stream_component_open(VideoState *is, int stream_index) //打开流
             is->auddec.start_pts = is->audio_st->start_time;
             is->auddec.start_pts_tb = is->audio_st->time_base;
         }
-        if ((ret = decoder_start(&is->auddec, audio_thread, "audio_decoder", is)) < 0)
+        if ((ret = decoder_start (&is->auddec, audio_thread, "audio_decoder", is)) < 0)
             goto out;
         SDL_PauseAudioDevice(audio_dev, 0);
         break;
